@@ -1,3 +1,5 @@
+require "rexml/document"
+
 class JasperSourceBuilder
   attr_accessor :model
   attr_accessor :record
