@@ -1,8 +1,11 @@
-# -*- coding: utf-8 -*-
-require "rexml/document"
-
 class JasperSourceBuilder
+  attr_accessor :model
+  attr_accessor :record
+
   def initialize(data_source, model, record)
+    @model = model
+    @record = record
+
     @out_doc = REXML::Document.new()
     @out_doc.add(REXML::XMLDecl.new(version="1.0", encoding="UTF-8"))
     elem = REXML::Element.new(model)
@@ -23,6 +26,14 @@ class JasperSourceBuilder
   def to_xml(dummy)
     @out_doc.to_s
   end
+
+  def root
+    @out_doc.root
+  end
+
+  def add_subreport(jsb)
+    @out_doc.root.elements[@record].add(jsb.root)
+  end
 end
 
 class ActionController::Base
@@ -36,14 +47,26 @@ class ActionController::Base
     else
       jasper_file = File.join("app/views",params[:controller],params[:action]) + ".jasper"
     end
-    if arg[:resource].size > 0 && arg[:resource][0].kind_of?(Hash)
-      resource = JasperSourceBuilder.new(arg[:resource], model_name, record_name)
-    else
-      resource = arg[:resource]
-    end
-	  jasper_params = arg[:params] || params
-    options = arg[:options] || {}
-    send_data JasperRails::Jasper::Rails.render_pdf(jasper_file, resource, jasper_params, options), :type => Mime::PDF, :filename => arg[:filename]
 
+    unless arg[:filename].nil?
+      filename = arg[:filename]
+      filename += ".pdf" unless filename =~ /.pdf$/
+    else
+      filename = params[:action] + ".pdf"
+    end
+
+    if arg[:resource].kind_of?(JasperSourceBuilder)
+      resource = arg[:resource]
+    else
+      if arg[:resource].size > 0 && arg[:resource][0].kind_of?(Hash)
+        resource = JasperSourceBuilder.new(arg[:resource], model_name, record_name)
+      else
+        resource = arg[:resource]
+      end
+    end
+
+    options = arg[:options] || {}
+    send_data JasperRails::Jasper::Rails.render_pdf(jasper_file, resource, params, options), :type => Mime::PDF, :filename => filename
   end
+
 end
